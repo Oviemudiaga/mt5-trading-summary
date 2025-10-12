@@ -1,0 +1,26 @@
+# Virtual Environment
+trading_summary/
+venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+
+# Settings (contains sensitive credentials)
+settings.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
