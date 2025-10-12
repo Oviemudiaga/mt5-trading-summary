@@ -24,21 +24,35 @@ def load_settings(settings_file='settings.json'):
 
 def should_run_workflow(settings, last_run_time):
     """
-    Check if the workflow should run (every hour on the hour)
+    Check if the workflow should run
+    - Weekdays (Mon-Fri): Every hour on the hour
+    - Weekends (Sat-Sun): Every 6 hours (00:00, 06:00, 12:00, 18:00)
     :param settings: Settings dictionary
     :param last_run_time: DateTime of last run
     :return: Boolean indicating if workflow should run
     """
     now = datetime.now()
     current_minute = now.minute
+    current_hour = now.hour
+    current_weekday = now.weekday()  # 0=Monday, 6=Sunday
     
-    # Run on the hour (when minute is 0)
-    if current_minute == 0:
-        # Make sure we haven't run in the last hour
-        if last_run_time is None or (now - last_run_time).total_seconds() > 3600:
+    # Only run on the hour (when minute is 0)
+    if current_minute != 0:
+        return False
+    
+    # Make sure we haven't run in the last hour (prevents duplicate runs)
+    if last_run_time is not None and (now - last_run_time).total_seconds() < 3600:
+        return False
+    
+    # Weekend (Saturday=5, Sunday=6): Run every 6 hours
+    if current_weekday >= 5:  # Weekend
+        if current_hour in [0, 6, 12, 18]:
             return True
+        else:
+            return False
     
-    return False
+    # Weekday (Monday-Friday): Run every hour
+    return True
 
 
 def run_scheduled_workflow():
@@ -56,7 +70,9 @@ def run_scheduled_workflow():
         print("❌ Failed to load settings. Exiting.")
         return
     
-    print(f"🕐 Workflow will run EVERY HOUR on the hour (e.g., 9:00, 10:00, 11:00...)")
+    print(f"🕐 Schedule:")
+    print(f"   📅 Weekdays (Mon-Fri): Every hour on the hour")
+    print(f"   📅 Weekends (Sat-Sun): Every 6 hours (12:00 AM, 6:00 AM, 12:00 PM, 6:00 PM)")
     print("Checking every minute...\n")
     
     last_run_time = None
