@@ -8,7 +8,7 @@ An intelligent MetaTrader 5 trading summary system that provides automated perfo
 - **Multi-Timeframe Summaries**: Daily, weekly, monthly, and yearly performance metrics
 - **AI-Powered Analysis**: Uses Ollama LLM to provide intelligent insights and recommendations
 - **Telegram Notifications**: Sends formatted summaries with AI analysis to your Telegram
-- **Scheduled Execution**: Runs automatically at configured times (default: 5 PM daily)
+- **Scheduled Execution**: Runs automatically every hour on the hour (1:00, 2:00, 3:00, etc.)
 - **Manual Execution**: Can be run on-demand for immediate reports
 
 ## 📋 Requirements
@@ -103,12 +103,6 @@ python main.py --help
 - **base_url**: Ollama API endpoint (default: http://localhost:11434)
 - **temperature**: Creativity level for analysis (0.0-1.0)
 - **system_prompt**: Custom prompt to guide the AI's analysis style
-
-### Scheduler Settings
-
-- **run_hour**: Hour to run daily (0-23, 24-hour format)
-- **run_minute**: Minute to run (0-59)
-- **timezone**: "local" for system timezone
 
 ## 📊 What You Get
 
