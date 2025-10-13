@@ -25,8 +25,8 @@ def load_settings(settings_file='settings.json'):
 def should_run_workflow(settings, last_run_time):
     """
     Check if the workflow should run
-    - Weekdays (Mon-Fri): Every hour on the hour
-    - Weekends (Sat-Sun): Every 6 hours (00:00, 06:00, 12:00, 18:00)
+    - Weekdays (Mon-Fri): Every 4 hours (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
+    - Weekends (Sat-Sun): Once per day at 23:00
     :param settings: Settings dictionary
     :param last_run_time: DateTime of last run
     :return: Boolean indicating if workflow should run
@@ -35,24 +35,26 @@ def should_run_workflow(settings, last_run_time):
     current_minute = now.minute
     current_hour = now.hour
     current_weekday = now.weekday()  # 0=Monday, 6=Sunday
-    
+
     # Only run on the hour (when minute is 0)
     if current_minute != 0:
         return False
-    
-    # Make sure we haven't run in the last hour (prevents duplicate runs)
+
+    # Prevent duplicate runs (must be at least 1 hour since last run)
     if last_run_time is not None and (now - last_run_time).total_seconds() < 3600:
         return False
-    
-    # Weekend (Saturday=5, Sunday=6): Run every 6 hours
-    if current_weekday >= 5:  # Weekend
-        if current_hour in [0, 6, 12, 18]:
+
+    # Weekend (Saturday=5, Sunday=6): Run once at 23:00
+    if current_weekday >= 5:
+        if current_hour == 23:
             return True
         else:
             return False
-    
-    # Weekday (Monday-Friday): Run every hour
-    return True
+
+    # Weekday (Monday-Friday): Run every 4 hours
+    if current_hour in [0, 4, 8, 12, 16, 20]:
+        return True
+    return False
 
 
 def run_scheduled_workflow():
@@ -71,8 +73,8 @@ def run_scheduled_workflow():
         return
     
     print(f"🕐 Schedule:")
-    print(f"   📅 Weekdays (Mon-Fri): Every hour on the hour")
-    print(f"   📅 Weekends (Sat-Sun): Every 6 hours (12:00 AM, 6:00 AM, 12:00 PM, 6:00 PM)")
+    print(f"   📅 Weekdays (Mon-Fri): Every 4 hours (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)")
+    print(f"   📅 Weekends (Sat-Sun): Once per day at 23:00 (end of day)")
     print("Checking every minute...\n")
     
     last_run_time = None
