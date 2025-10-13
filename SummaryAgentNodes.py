@@ -625,6 +625,23 @@ class SummaryAgent:
         if is_weekend:
             prompt += "⚠️ TODAY IS WEEKEND - Forex markets are closed. Zero trades today is NORMAL and EXPECTED. DO NOT mention this as a concern.\n\n"
         
+        open_positions = self.get_open_positions()
+        if open_positions:
+            prompt += f"**OPEN POSITIONS ({len(open_positions)}):**\n"
+            total_exposure = 0
+            for pos in open_positions:
+                total_exposure += pos['profit']
+                status = "WINNING" if pos['profit'] > 0 else "LOSING"
+                prompt += (f"- {pos['symbol']} [{status}]: "
+                        f"Vol: {pos['volume']} | "
+                        f"Entry: {pos['open_price']:.5f} | "
+                        f"Current: {pos['current_price']:.5f} | "
+                        f"Floating P&L: ${pos['profit']:.2f} | "
+                        f"Strategy: {pos['comment']}\n")
+            prompt += f"Total Open Exposure: ${total_exposure:.2f}\n\n"
+        else:
+            prompt += "**OPEN POSITIONS:** None (all positions closed)\n\n"        
+               
         # Add daily summary
         if hasattr(state, 'daily_summary') and state.daily_summary:
             ds = state.daily_summary
@@ -662,32 +679,30 @@ class SummaryAgent:
                             f"{round(wr, 1)}% win rate | "
                             f"Wins: {perf['wins']} Losses: {perf['losses']}\n")
                 
-                prompt += "\n⚠️ CONTEXT: 'Untagged (Old Trades)' = historical trades from BEFORE the strategy tagging system. These are LEGACY trades. Focus your analysis on CURRENT tagged strategies (Window_Breakout, Breakout, etc.) as they reflect the ACTIVE trading approach.\n"
-        
-        prompt += """
-    ANALYSIS REQUIREMENTS - CRITICAL:
-    - Maximum 800 characters total
-    - Ultra-concise bullet points only
-    - Be specific and mathematically accurate
+        prompt += "\n⚠️ CONTEXT: 'Untagged (Old Trades)' = historical trades from BEFORE the strategy tagging system. These are LEGACY trades. Focus your analysis on CURRENT tagged strategies (Window_Breakout, Breakout, etc.) as they reflect the ACTIVE trading approach.\n"
+                
+        # Determine if there are open positions
+        has_open_positions = len(self.get_open_positions()) > 0
 
-    Provide EXACTLY this structure:
+        if has_open_positions:
+            prompt += """\
+        MAX 800 CHARS. Give me:
+        1. **Key Insight** (1 line): Main takeaway
+        2. **Open Positions** (1 line): Quick risk check - hold or close?
+        3. **Risks** (1-2 lines): Biggest concerns
+        4. **Actions** (1-2 lines): What to do next
 
-    1. **Key Insight** (1 sentence): Most important takeaway from the data
+        Be direct. Negative P&L = LOSING.
+        """
+        else:
+            prompt += """\
+        MAX 800 CHARS. Give me:
+        1. **Key Insight** (1 line): Main takeaway
+        2. **Best Performers** (1-2 lines): Only list strategies with POSITIVE P&L. If none, say "No profitable tagged strategies yet"
+        3. **Risks** (1-2 lines): Biggest concerns
+        4. **Actions** (1-2 lines): What to do next
 
-    2. **Best Performers** (1-2 bullets):
-    - Identify ONLY strategies with POSITIVE P&L (profit > $0)
-    - If ALL tagged strategies are losing, state "No profitable tagged strategies yet"
-    - Do NOT call strategies with negative P&L "best performers"
-
-    3. **Risks** (1-2 bullets):
-    - Strategies with largest losses (negative P&L)
-    - Low win rates or concerning patterns
-
-    4. **Actions** (1-2 bullets):
-    - Specific next steps for underperforming strategies
-    - Reference exact strategy names
-
-    CRITICAL: A negative P&L (like $-26.55) means LOSING, not profitable. Be mathematically accurate.
-    """
-        
+        Be direct. Negative P&L = LOSING.
+        """
+                
         return prompt
