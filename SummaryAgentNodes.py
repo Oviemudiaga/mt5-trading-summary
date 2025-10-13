@@ -1,3 +1,4 @@
+
 """
 SummaryAgent - A class for managing MetaTrader 5 connection and trade summaries
 """
@@ -132,6 +133,41 @@ class SummaryAgent:
         except Exception as e:
             print(f"Error retrieving trade history: {e}")
             return None
+        
+    def get_open_positions(self):
+        """
+        Get currently open positions from MT5
+        :return: List of open position dictionaries
+        """
+        try:
+            positions = mt5.positions_get()
+            
+            if positions is None:
+                print(f"No positions found, error code: {mt5.last_error()}")
+                return []
+            
+            if len(positions) == 0:
+                return []
+            
+            # Format positions into readable dictionaries
+            open_trades = []
+            for pos in positions:
+                trade = {
+                    'symbol': pos.symbol,
+                    'volume': pos.volume,
+                    'open_price': pos.price_open,
+                    'current_price': pos.price_current,
+                    'profit': pos.profit,
+                    'comment': pos.comment if hasattr(pos, 'comment') and pos.comment else 'No strategy'
+                }
+                open_trades.append(trade)
+            
+            return open_trades
+            
+        except Exception as e:
+            print(f"Error retrieving open positions: {e}")
+            return []    
+    
     
     def calculate_summary(self, deals):
         """
@@ -151,57 +187,42 @@ class SummaryAgent:
                 'win_rate': 0.0,
                 'strategies': {}
             }
-        
-        # First pass: Build a map of position_id -> opening deal comment
-        # This helps us recover strategy names when SL/TP overwrites the comment
+
+        # First pass: Build maps for round-trip analysis
+        position_entries = {}
+        position_exits = {}
         position_strategy_map = {}
         for deal in deals:
             if hasattr(deal, 'entry') and deal.entry == 0:  # Opening deal
                 comment = deal.comment if hasattr(deal, 'comment') else ''
                 if comment and comment.strip():
                     position_strategy_map[deal.position_id] = comment
-        
+                position_entries[deal.position_id] = deal
+            elif hasattr(deal, 'entry') and deal.entry == 1:
+                position_exits[deal.position_id] = deal
+
+        # Only count round-trips (positions with both entry and exit)
+        round_trip_ids = set(position_entries.keys()) & set(position_exits.keys())
+        strategies = {}
         total_profit = 0.0
         total_swap = 0.0
         total_commission = 0.0
         total_fee = 0.0
         winning_trades = 0
         losing_trades = 0
-        strategies = {}  # Track per-strategy performance
-        
-        for deal in deals:
-            # Skip entry deals (opening positions) - only count exits where profit is realized
-            # Entry type: 0=IN (open), 1=OUT (close), 2=INOUT (reverse)
-            if hasattr(deal, 'entry') and deal.entry == 0:
-                continue  # Skip opening deals, they have no profit yet
-            
-            # Calculate individual components
-            profit = deal.profit
-            swap = deal.swap if hasattr(deal, 'swap') else 0.0
-            commission = deal.commission if hasattr(deal, 'commission') else 0.0
-            fee = deal.fee if hasattr(deal, 'fee') else 0.0
-            
-            # Accumulate totals
-            total_profit += profit
-            total_swap += swap
-            total_commission += commission
-            total_fee += fee
-            
-            # Count wins/losses based on profit only
-            if profit > 0:
-                winning_trades += 1
-            elif profit < 0:
-                losing_trades += 1
-            
-            # Track strategy performance
-            comment = deal.comment if hasattr(deal, 'comment') else ''
-            
-            # If comment looks like SL/TP ([sl ...] or [tp ...]), try to recover original strategy
+        total_trades = 0
+        for pos_id in round_trip_ids:
+            entry_deal = position_entries[pos_id]
+            exit_deal = position_exits[pos_id]
+            profit = exit_deal.profit
+            swap = exit_deal.swap if hasattr(exit_deal, 'swap') else 0.0
+            commission = exit_deal.commission if hasattr(exit_deal, 'commission') else 0.0
+            fee = exit_deal.fee if hasattr(exit_deal, 'fee') else 0.0
+            comment = exit_deal.comment if hasattr(exit_deal, 'comment') else ''
+            # Recover strategy if SL/TP
             if '[sl ' in str(comment).lower() or '[tp ' in str(comment).lower():
-                # Try to recover original strategy from opening deal
-                if hasattr(deal, 'position_id') and deal.position_id in position_strategy_map:
-                    comment = position_strategy_map[deal.position_id]
-            
+                if pos_id in position_strategy_map:
+                    comment = position_strategy_map[pos_id]
             # Categorize strategy with clear labels
             if 'CheckoutSC' in str(comment) or 'Checkout' in str(comment):
                 strategy = 'Deposit/Withdrawal'
@@ -209,7 +230,6 @@ class SummaryAgent:
                 strategy = 'Untagged (Old Trades)'
             else:
                 strategy = comment
-            
             if strategy not in strategies:
                 strategies[strategy] = {
                     'trades': 0,
@@ -217,22 +237,26 @@ class SummaryAgent:
                     'wins': 0,
                     'losses': 0
                 }
-            
             strategies[strategy]['trades'] += 1
             strategies[strategy]['pnl'] += profit + swap - commission - fee
             if profit > 0:
+                winning_trades += 1
                 strategies[strategy]['wins'] += 1
             elif profit < 0:
+                losing_trades += 1
                 strategies[strategy]['losses'] += 1
-        
+            total_profit += profit
+            total_swap += swap
+            total_commission += commission
+            total_fee += fee
+            total_trades += 1
+
         # Calculate total P&L (profit + swap - commission - fee)
         total_pnl = total_profit + total_swap - total_commission - total_fee
-        
-        total_trades = winning_trades + losing_trades
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
-        
+
         return {
-            'total_deals': len(deals),
+            'total_deals': total_trades,
             'total_pnl': round(total_pnl, 2),
             'profit': round(total_profit, 2),
             'swap': round(total_swap, 2),
@@ -440,21 +464,41 @@ class SummaryAgent:
         
         message = f"<b>📊 Trading Summary</b> | {now}\n\n"
         
+        # Add account info if available
+        account = self.get_account_info()
+        if account:
+            message += f"💰 <b>Account:</b> Balance: ${account['balance']:.2f} | Equity: ${account['equity']:.2f} | Free Margin: ${account['free_margin']:.2f}\n\n"
+        
         # Check for recent untagged trades (last 24 hours)
         if hasattr(state, 'daily_summary') and state.daily_summary:
             daily_strategies = state.daily_summary.get('strategies', {})
             if 'Untagged (Old Trades)' in daily_strategies:
                 untagged_count = daily_strategies['Untagged (Old Trades)']['trades']
-                message += f"⚠️ <b>WARNING:</b> {untagged_count} untagged trade(s) detected today!\n\n"
+                message += f"⚠️ <b>WARNING:</b> {untagged_count} untagged trade(s) detected today! Check your EA strategy tagging.\n\n"
         
         # Helper function to format summary section concisely
         def format_section(title, emoji, summary):
             pnl_emoji = "🟢" if summary['total_pnl'] >= 0 else "🔴"
+            trades_count = summary['total_deals']  # This is already round-trip count
             return (f"<b>{emoji} {title}</b>\n"
-                   f"{pnl_emoji} ${summary['total_pnl']} | "
-                   f"{summary['total_deals']}T (W:{summary['winning_trades']} L:{summary['losing_trades']}) | "
-                   f"{summary['win_rate']}%\n")
+                f"{pnl_emoji} ${summary['total_pnl']} | "
+                f"{trades_count} trades (W:{summary['winning_trades']} L:{summary['losing_trades']}) | "
+                f"WR: {summary['win_rate']}%\n")
         
+        # Show open trades section
+        open_trades = self.get_open_positions()
+        if open_trades:
+            message += f"<b>🟡 Open Positions ({len(open_trades)})</b>\n"
+            for trade in open_trades:
+                pnl_emoji = "🟢" if trade['profit'] >= 0 else "🔴"
+                message += (f"{pnl_emoji} <b>{trade['symbol']}</b> | "
+                        f"Vol: {trade['volume']} | "
+                        f"Entry: {trade['open_price']:.5f} | "
+                        f"Current: {trade['current_price']:.5f} | "
+                        f"P&L: ${trade['profit']:.2f} | "
+                        f"Strategy: {trade['comment']}\n")
+            message += "\n"
+
         # Add summaries
         if hasattr(state, 'daily_summary') and state.daily_summary:
             message += format_section("Today", "📅", state.daily_summary)
@@ -475,10 +519,15 @@ class SummaryAgent:
                 # Filter out deposits/withdrawals and sort by PnL descending
                 trading_strategies = {k: v for k, v in strategies.items() if k != 'Deposit/Withdrawal'}
                 sorted_strategies = sorted(trading_strategies.items(), key=lambda x: x[1]['pnl'], reverse=True)
+                
                 for strategy, perf in sorted_strategies[:5]:  # Top 5 strategies to save space
                     pnl_emoji = "🟢" if perf['pnl'] >= 0 else "🔴"
                     wr = (perf['wins'] / perf['trades'] * 100) if perf['trades'] > 0 else 0
-                    message += f"{pnl_emoji} {strategy}: ${round(perf['pnl'], 2)} ({perf['trades']}T, {round(wr, 1)}%)\n"
+                    message += (f"{pnl_emoji} <b>{strategy}</b>: "
+                            f"${round(perf['pnl'], 2)} | "
+                            f"{perf['trades']} trades | "
+                            f"{round(wr, 1)}% WR | "
+                            f"W:{perf['wins']} L:{perf['losses']}\n")
         
         # LLM Analysis - truncate if needed
         if hasattr(state, 'llm_analysis') and state.llm_analysis:
@@ -488,8 +537,7 @@ class SummaryAgent:
         if len(message) > 4000:
             message = message[:3990] + "\n\n...[truncated]"
         
-        return message
-    
+        return message   
     def analyze_with_llm(self, state):
         """
         Analyze trading summaries using Ollama LLM for intelligent insights
@@ -546,6 +594,22 @@ class SummaryAgent:
             
         return state
     
+    def get_account_info(self):
+        """Get current account balance and equity"""
+        try:
+            account_info = mt5.account_info()
+            if account_info is None:
+                return None
+            return {
+                'balance': account_info.balance,
+                'equity': account_info.equity,
+                'margin': account_info.margin,
+                'free_margin': account_info.margin_free
+            }
+        except Exception as e:
+            print(f"Error getting account info: {e}")
+            return None
+
     def _build_analysis_prompt(self, state):
         """
         Build a comprehensive prompt for LLM analysis
@@ -559,51 +623,71 @@ class SummaryAgent:
         prompt = "Analyze this forex trading performance:\n\n"
         
         if is_weekend:
-            prompt += "⚠️ TODAY IS WEEKEND - Forex closed. Zero trades today is NORMAL. DO NOT mention this.\n\n"
+            prompt += "⚠️ TODAY IS WEEKEND - Forex markets are closed. Zero trades today is NORMAL and EXPECTED. DO NOT mention this as a concern.\n\n"
         
         # Add daily summary
         if hasattr(state, 'daily_summary') and state.daily_summary:
             ds = state.daily_summary
-            prompt += f"**TODAY** P&L: ${ds['total_pnl']} | {ds['total_deals']}T | WR: {ds['win_rate']}%\n"
+            prompt += f"**TODAY** P&L: ${ds['total_pnl']} | {ds['total_deals']} trades | Win Rate: {ds['win_rate']}% | Wins: {ds['winning_trades']} | Losses: {ds['losing_trades']}\n"
         
         # Add weekly summary
         if hasattr(state, 'weekly_summary') and state.weekly_summary:
             ws = state.weekly_summary
-            prompt += f"**WEEK** P&L: ${ws['total_pnl']} | {ws['total_deals']}T | WR: {ws['win_rate']}%\n"
+            prompt += f"**WEEK** P&L: ${ws['total_pnl']} | {ws['total_deals']} trades | Win Rate: {ws['win_rate']}% | Wins: {ws['winning_trades']} | Losses: {ws['losing_trades']}\n"
         
         # Add monthly summary
         if hasattr(state, 'monthly_summary') and state.monthly_summary:
             ms = state.monthly_summary
-            prompt += f"**MONTH** P&L: ${ms['total_pnl']} | {ms['total_deals']}T | WR: {ms['win_rate']}%\n"
+            prompt += f"**MONTH** P&L: ${ms['total_pnl']} | {ms['total_deals']} trades | Win Rate: {ms['win_rate']}% | Wins: {ms['winning_trades']} | Losses: {ms['losing_trades']}\n"
         
         # Add yearly summary with strategy breakdown
         if hasattr(state, 'yearly_summary') and state.yearly_summary:
             ys = state.yearly_summary
-            prompt += f"**YEAR** P&L: ${ys['total_pnl']} | {ys['total_deals']}T | WR: {ys['win_rate']}%\n"
+            prompt += f"**YEAR** P&L: ${ys['total_pnl']} | {ys['total_deals']} trades | Win Rate: {ys['win_rate']}% | Wins: {ys['winning_trades']} | Losses: {ys['losing_trades']}\n"
             
-            # Add top strategies
+            # Add top strategies with more detailed breakdown
             strategies = ys.get('strategies', {})
             if strategies:
-                prompt += f"\n**STRATEGIES (YTD):**\n"
+                prompt += f"\n**STRATEGY BREAKDOWN (Year-to-Date):**\n"
                 # Filter out deposits/withdrawals
                 trading_strategies = {k: v for k, v in strategies.items() if k != 'Deposit/Withdrawal'}
                 sorted_strats = sorted(trading_strategies.items(), key=lambda x: x[1]['pnl'], reverse=True)
-                for strategy, perf in sorted_strats[:5]:
-                    wr = (perf['wins'] / perf['trades'] * 100) if perf['trades'] > 0 else 0
-                    prompt += f"- {strategy}: ${round(perf['pnl'], 2)} ({perf['trades']}T, {round(wr, 1)}% WR)\n"
                 
-                prompt += "\nNOTE: 'Untagged (Old Trades)' are historical trades before strategy tagging was implemented. Focus analysis on currently active tagged strategies.\n"
+                for strategy, perf in sorted_strats[:5]:  # Top 5 strategies
+                    wr = (perf['wins'] / perf['trades'] * 100) if perf['trades'] > 0 else 0
+                    status = "PROFITABLE" if perf['pnl'] > 0 else "LOSING"
+                    prompt += (f"- {strategy} [{status}]: "
+                            f"P&L ${round(perf['pnl'], 2)} | "
+                            f"{perf['trades']} trades | "
+                            f"{round(wr, 1)}% win rate | "
+                            f"Wins: {perf['wins']} Losses: {perf['losses']}\n")
+                
+                prompt += "\n⚠️ CONTEXT: 'Untagged (Old Trades)' = historical trades from BEFORE the strategy tagging system. These are LEGACY trades. Focus your analysis on CURRENT tagged strategies (Window_Breakout, Breakout, etc.) as they reflect the ACTIVE trading approach.\n"
         
         prompt += """
-CRITICAL: Max 800 characters total. Ultra-concise bullet points only.
+    ANALYSIS REQUIREMENTS - CRITICAL:
+    - Maximum 800 characters total
+    - Ultra-concise bullet points only
+    - Be specific and mathematically accurate
 
-Provide:
-1. **Key Insight** (1 sentence): Main takeaway
-2. **Best Performers** (1-2 bullets): What's working
-3. **Risks** (1-2 bullets): Main concerns
-4. **Actions** (1-2 bullets): Specific next steps
+    Provide EXACTLY this structure:
 
-No fluff. Direct. Brief.
-"""
+    1. **Key Insight** (1 sentence): Most important takeaway from the data
+
+    2. **Best Performers** (1-2 bullets):
+    - Identify ONLY strategies with POSITIVE P&L (profit > $0)
+    - If ALL tagged strategies are losing, state "No profitable tagged strategies yet"
+    - Do NOT call strategies with negative P&L "best performers"
+
+    3. **Risks** (1-2 bullets):
+    - Strategies with largest losses (negative P&L)
+    - Low win rates or concerning patterns
+
+    4. **Actions** (1-2 bullets):
+    - Specific next steps for underperforming strategies
+    - Reference exact strategy names
+
+    CRITICAL: A negative P&L (like $-26.55) means LOSING, not profitable. Be mathematically accurate.
+    """
         
         return prompt
