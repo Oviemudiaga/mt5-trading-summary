@@ -4861,3 +4861,57 @@ ValueError: hour must be in 0..23
 2025-10-27 09:44:53,488 - SummaryAgentNodesWorkflow - INFO - Workflow Complete!
 2025-10-27 09:44:53,496 - SummaryAgentNodesWorkflow - INFO - ============================================================
 2025-10-27 09:44:53,510 - __main__ - INFO - Workflow execution for account 600003895 completed
+2025-10-27 10:14:21,434 - __main__ - INFO - Settings loaded from settings.json
+2025-10-27 10:14:21,435 - __main__ - INFO - Settings validation passed
+2025-10-27 12:00:29,739 - __main__ - INFO - Weekday 4-hour trigger: 2025-10-27 12:00:29
+2025-10-27 12:00:29,741 - __main__ - INFO - Processing account 1/1: 600003895 @ OANDA-Prop Trader
+2025-10-27 12:00:29,741 - SummaryAgentNodesWorkflow - INFO - Settings loaded from override
+2025-10-27 12:00:29,742 - SummaryAgentNodes - INFO - Settings validation passed
+2025-10-27 12:00:29,742 - SummaryAgentNodesWorkflow - INFO - ============================================================
+2025-10-27 12:00:29,742 - SummaryAgentNodesWorkflow - INFO - Starting Trading Summary Workflow
+2025-10-27 12:00:29,742 - SummaryAgentNodesWorkflow - INFO - ============================================================
+2025-10-27 12:00:29,742 - SummaryAgentNodes - INFO - Initializing MT5 connection to OANDA-Prop Trader with account 600003895
+2025-10-27 12:00:29,744 - State - INFO - MT5 initialized and logged in successfully (Account: 600003895)
+2025-10-27 12:00:29,744 - SummaryAgentNodes - INFO - MetaTrader5 package author: MetaQuotes Ltd.
+2025-10-27 12:00:29,744 - SummaryAgentNodes - INFO - MetaTrader5 package version: 5.0.5328
+2025-10-27 12:00:29,744 - SummaryAgentNodes - INFO - Logged in to account: 600003895 on server: OANDA-Prop Trader
+2025-10-27 12:00:29,744 - SummaryAgentNodesWorkflow - INFO - [OK] MT5 initialized and logged in
+2025-10-27 12:00:29,745 - SummaryAgentNodesWorkflow - INFO - Generating daily summary...
+2025-10-27 12:00:29,745 - SummaryAgentNodes - INFO - Retrieved 5 deals
+2025-10-27 12:00:29,745 - State - INFO - Daily summary: 2 trades, P&L: $-770.09
+2025-10-27 12:00:29,745 - SummaryAgentNodes - INFO - Daily Summary: Total P&L: $-770.09, Trades: 2
+2025-10-27 12:00:29,745 - SummaryAgentNodesWorkflow - INFO - [OK] Daily summary complete
+2025-10-27 12:00:29,745 - SummaryAgentNodesWorkflow - INFO - Generating weekly summary...
+2025-10-27 12:00:29,745 - SummaryAgentNodes - INFO - Retrieved 5 deals
+2025-10-27 12:00:29,745 - State - INFO - Weekly summary: 2 trades, P&L: $-770.09
+2025-10-27 12:00:29,745 - SummaryAgentNodes - INFO - Weekly Summary: Total P&L: $-770.09, Trades: 2
+2025-10-27 12:00:29,746 - SummaryAgentNodesWorkflow - INFO - [OK] Weekly summary complete
+2025-10-27 12:00:29,746 - SummaryAgentNodesWorkflow - INFO - Generating monthly summary...
+2025-10-27 12:00:29,746 - SummaryAgentNodes - INFO - Retrieved 86 deals
+2025-10-27 12:00:29,746 - State - INFO - Monthly summary: 40 trades, P&L: $-103.57
+2025-10-27 12:00:29,746 - SummaryAgentNodes - INFO - Monthly Summary: Total P&L: $-103.57, Trades: 40
+2025-10-27 12:00:29,746 - SummaryAgentNodesWorkflow - INFO - [OK] Monthly summary complete
+2025-10-27 12:00:29,746 - SummaryAgentNodesWorkflow - INFO - Generating yearly summary...
+2025-10-27 12:00:29,747 - SummaryAgentNodes - INFO - Retrieved 110 deals
+2025-10-27 12:00:29,747 - State - INFO - Yearly summary: 51 trades, P&L: $1712.69
+2025-10-27 12:00:29,747 - SummaryAgentNodes - INFO - Yearly Summary: Total P&L: $1712.69, Trades: 51
+2025-10-27 12:00:29,747 - SummaryAgentNodesWorkflow - INFO - [OK] Yearly summary complete
+2025-10-27 12:00:29,747 - SummaryAgentNodesWorkflow - INFO - Analyzing trading performance with AI...
+2025-10-27 12:00:29,747 - SummaryAgentNodes - INFO - Retrieved 1 open positions
+2025-10-27 12:00:29,748 - SummaryAgentNodes - INFO - No open position exceeded the configured safety thresholds; close recommendations suppressed.
+2025-10-27 12:00:29,748 - SummaryAgentNodes - INFO - Analyzing trading data with qwen2.5:7b...
+2025-10-27 12:00:35,980 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2025-10-27 12:00:35,980 - State - INFO - LLM analysis completed successfully
+2025-10-27 12:00:35,980 - SummaryAgentNodes - INFO - [OK] LLM analysis complete
+2025-10-27 12:00:35,980 - SummaryAgentNodesWorkflow - INFO - [OK] AI analysis complete
+2025-10-27 12:00:35,981 - SummaryAgentNodesWorkflow - INFO - Sending summaries to Telegram...
+2025-10-27 12:00:35,981 - SummaryAgentNodes - INFO - Retrieved 1 open positions
+2025-10-27 12:00:36,484 - State - INFO - Summary sent to Telegram successfully
+2025-10-27 12:00:36,484 - SummaryAgentNodes - INFO - Summary sent to Telegram successfully
+2025-10-27 12:00:36,484 - SummaryAgentNodesWorkflow - INFO - [OK] Summaries sent to Telegram
+2025-10-27 12:00:36,485 - SummaryAgentNodes - INFO - MT5 connection closed (cleanup)
+2025-10-27 12:00:36,485 - SummaryAgentNodesWorkflow - INFO - ============================================================
+2025-10-27 12:00:36,485 - SummaryAgentNodesWorkflow - INFO - Workflow Complete!
+2025-10-27 12:00:36,485 - SummaryAgentNodesWorkflow - INFO - ============================================================
+2025-10-27 12:00:36,485 - __main__ - INFO - Workflow execution for account 600003895 completed
+2025-10-27 12:00:36,486 - __main__ - INFO - Workflow completed at 12:00:36
