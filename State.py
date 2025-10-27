@@ -2,6 +2,9 @@
 State - Manages the state information for the trading summary workflow
 """
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class State:
@@ -26,14 +29,20 @@ class State:
         Add a message to the state
         :param message: Message string to add
         """
-        self.messages.append(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        formatted_message = f"[{timestamp}] {message}"
+        self.messages.append(formatted_message)
+        logger.info(message)
         
     def add_error(self, error):
         """
         Add an error to the state
         :param error: Error string to add
         """
-        self.errors.append(f"[{datetime.now().strftime('%H:%M:%S')}] {error}")
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        formatted_error = f"[{timestamp}] {error}"
+        self.errors.append(formatted_error)
+        logger.error(error)
         
     def is_ready_for_summary(self):
         """
@@ -67,6 +76,7 @@ class State:
         self.telegram_sent = False
         self.messages = []
         self.errors = []
+        logger.info("State reset")
         
     def get_summary_report(self):
         """
